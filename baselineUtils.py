@@ -7,15 +7,19 @@ import random
 import scipy.spatial
 import scipy.io
 
-def create_dataset(dataset_folder,dataset_name,val_size,gt,horizon,delim="\t",train=True,eval=False,verbose=False):
 
-        if train==True:
+def create_dataset(dataset_folder,dataset_name,val_size,gt,horizon,delim="\t",train=True,eval=False,verbose=False):
+        """
+        gt:obs length
+        horizon:pred length
+        """
+        if train==True: #训练集
             datasets_list = os.listdir(os.path.join(dataset_folder,dataset_name, "train"))
             full_dt_folder=os.path.join(dataset_folder,dataset_name, "train")
-        if train==False and eval==False:
+        if train==False and eval==False: #验证集
             datasets_list = os.listdir(os.path.join(dataset_folder, dataset_name, "val"))
             full_dt_folder = os.path.join(dataset_folder, dataset_name, "val")
-        if train==False and eval==True:
+        if train==False and eval==True: #测试集
             datasets_list = os.listdir(os.path.join(dataset_folder, dataset_name, "test"))
             full_dt_folder = os.path.join(dataset_folder, dataset_name, "test")
 
@@ -40,12 +44,12 @@ def create_dataset(dataset_folder,dataset_name,val_size,gt,horizon,delim="\t",tr
             print("start loading dataset")
             print("validation set size -> %i"%(val_size))
 
-
+        # dt为txt文件
         for i_dt, dt in enumerate(datasets_list):
             if verbose:
                 print("%03i / %03i - loading %s"%(i_dt+1,len(datasets_list),dt))
             raw_data = pd.read_csv(os.path.join(full_dt_folder, dt), delimiter=delim,
-                                            names=["frame", "ped", "x", "y"],usecols=[0,1,2,3],na_values="?")
+                                            names=["frame", "ped", "x", "y", "z"],usecols=[0,1,2,3],na_values="?") # TODO
 
             raw_data.sort_values(by=['frame','ped'], inplace=True)
 
@@ -163,21 +167,27 @@ def create_folders(baseFolder,datasetName):
 
 
 def get_strided_data(dt, gt_size, horizon, step):
+    """
+    gt:obs length
+    horizon:pred length
+    step:步长
+    """
+
     inp_te = []
     dtt = dt.astype(np.float32)
     raw_data = dtt
-
+    # 所有的行人ID
     ped = raw_data.ped.unique()
     frame=[]
     ped_ids=[]
     for p in ped:
-        for i in range(1+(raw_data[raw_data.ped == p].shape[0] - gt_size - horizon) // step):
+        for i in range(1+(raw_data[raw_data.ped == p].shape[0] - gt_size - horizon) // step): # 将gt和horizon的
             frame.append(dt[dt.ped == p].iloc[i * step:i * step + gt_size + horizon, [0]].values.squeeze())
             # print("%i,%i,%i" % (i * 4, i * 4 + gt_size, i * 4 + gt_size + horizon))
-            inp_te.append(raw_data[raw_data.ped == p].iloc[i * step:i * step + gt_size + horizon, 2:4].values)
+            inp_te.append(raw_data[raw_data.ped == p].iloc[i * step:i * step + gt_size + horizon, 2:4].values) # 添加xy经纬度, TODO
             ped_ids.append(p)
 
-    frames=np.stack(frame)
+    frames=np.stack(frame) # list转成numpy，将所有的frame整合
     inp_te_np = np.stack(inp_te)
     ped_ids=np.stack(ped_ids)
 
@@ -240,6 +250,7 @@ def get_strided_data_clust(dt, gt_size, horizon, step):
         for i in range(1+(raw_data[raw_data.ped == p].shape[0] - gt_size - horizon) // step):
             frame.append(dt[dt.ped == p].iloc[i * step:i * step + gt_size + horizon, [0]].values.squeeze())
             # print("%i,%i,%i" % (i * 4, i * 4 + gt_size, i * 4 + gt_size + horizon))
+            # 找出p相等的数据
             inp_te.append(raw_data[raw_data.ped == p].iloc[i * step:i * step + gt_size + horizon, 2:4].values)
             ped_ids.append(p)
 
@@ -248,6 +259,7 @@ def get_strided_data_clust(dt, gt_size, horizon, step):
     ped_ids=np.stack(ped_ids)
 
     #inp_relative_pos= inp_te_np-inp_te_np[:,:1,:]
+    # TODO:
     inp_speed = np.concatenate((np.zeros((inp_te_np.shape[0],1,2)),inp_te_np[:,1:,0:2] - inp_te_np[:, :-1, 0:2]),1)
     #inp_accel = np.concatenate((np.zeros((inp_te_np.shape[0],1,2)),inp_speed[:,1:,0:2] - inp_speed[:, :-1, 0:2]),1)
     #inp_std = inp_no_start.std(axis=(0, 1))

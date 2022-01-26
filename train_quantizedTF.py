@@ -17,8 +17,6 @@ import pickle
 from torch.utils.tensorboard import SummaryWriter
 
 
-
-
 def main():
     parser=argparse.ArgumentParser(description='Train the individual Transformer model')
     parser.add_argument('--dataset_folder',type=str,default='datasets')
@@ -310,34 +308,6 @@ def main():
         epoch+=1
 
     ab=1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
