@@ -126,16 +126,16 @@ def main():
 
 
     #mean=train_dataset[:]['src'][:,1:,2:4].mean((0,1))
-    mean=torch.cat((train_dataset[:]['src'][:,1:,2:],train_dataset[:]['trg'][:,:,2:]),1).mean((0,1))
+    mean=torch.cat((train_dataset[:]['src'][:,1:,2:4],train_dataset[:]['trg'][:,:,2:4]),1).mean((0,1))
     #std=train_dataset[:]['src'][:,1:,2:4].std((0,1))
-    std=torch.cat((train_dataset[:]['src'][:,1:,2:],train_dataset[:]['trg'][:,:,2:]),1).std((0,1))
+    std=torch.cat((train_dataset[:]['src'][:,1:,2:4],train_dataset[:]['trg'][:,:,2:4]),1).std((0,1))
     means=[]
     stds=[]
     for i in np.unique(train_dataset[:]['dataset']):
         ind=train_dataset[:]['dataset']==i
-        means.append(torch.cat((train_dataset[:]['src'][ind, 1:, 2:], train_dataset[:]['trg'][ind, :, 2:]), 1).mean((0, 1)))
+        means.append(torch.cat((train_dataset[:]['src'][ind, 1:, 2:4], train_dataset[:]['trg'][ind, :, 2:4]), 1).mean((0, 1)))
         stds.append(
-            torch.cat((train_dataset[:]['src'][ind, 1:, 2:], train_dataset[:]['trg'][ind, :, 2:]), 1).std((0, 1)))
+            torch.cat((train_dataset[:]['src'][ind, 1:, 2:4], train_dataset[:]['trg'][ind, :, 2:4]), 1).std((0, 1)))
     mean=torch.stack(means).mean(0)
     std=torch.stack(stds).mean(0)
 
@@ -239,7 +239,6 @@ def main():
                     frames.append(batch['frames'])
                     peds.append(batch['peds'])
                     dt.append(batch['dataset'])
-
                     inp = (batch['src'][:, 1:, 2:].to(device) - mean.to(device)) / std.to(device)
                     src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
                     start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
@@ -261,6 +260,7 @@ def main():
                 frames = np.concatenate(frames, 0)
                 dt = np.concatenate(dt, 0)
                 gt = np.concatenate(gt, 0)
+                inp_ = np.concatenate(inp_, 0)
                 dt_names = test_dataset.data['dataset_name']
                 pr = np.concatenate(pr, 0)
                 mad, fad, errs = baselineUtils.distance_metrics(gt, pr)
@@ -277,6 +277,7 @@ def main():
                                  {'input': inp, 'gt': gt, 'pr': pr, 'peds': peds, 'frames': frames, 'dt': dt,
                                   'dt_names': dt_names})
 
+
         if epoch%args.save_step==0:
 
             torch.save(model.state_dict(),f'models/Individual/{args.name}/{epoch:05d}.pth')
@@ -285,6 +286,33 @@ def main():
 
         epoch+=1
     ab=1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
