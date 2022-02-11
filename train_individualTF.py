@@ -16,16 +16,16 @@ import pickle
 
 from torch.utils.tensorboard import SummaryWriter
 
-dim = 2
+dim = 3
 
 
 def main():
     parser=argparse.ArgumentParser(description='Train the individual Transformer model')
     parser.add_argument('--dataset_folder',type=str,default='datasets')
-    parser.add_argument('--dataset_name',type=str,default='zara1')
+    parser.add_argument('--dataset_name',type=str,default='state0907_20210312')
     parser.add_argument('--obs',type=int,default=8)
     parser.add_argument('--preds',type=int,default=12)
-    parser.add_argument('--emb_size',type=int,default=512)
+    parser.add_argument('--emb_size',type=int,default=480)
     parser.add_argument('--heads',type=int, default=8)
     parser.add_argument('--layers',type=int,default=6)
     parser.add_argument('--dropout',type=float,default=0.1)
@@ -108,8 +108,10 @@ def main():
 
 
     import individual_TF
-    model=individual_TF.IndividualTF(dim, 3, 3, N=args.layers,
-                   d_model=args.emb_size, d_ff=2048, h=args.heads, dropout=args.dropout,mean=[0,0],std=[0,0]).to(device)
+    model=individual_TF.IndividualTF(dim, 4, 4, N=args.layers,
+                   d_model=args.emb_size, d_ff=2048, h=args.heads, dropout=args.dropout,mean=[0,0,0],std=[0,0,0]).to(device)
+    print("model info is {}", model)
+
     if args.resume_train:
         model.load_state_dict(torch.load(f'models/Individual/{args.name}/{args.model_pth}'))
 
@@ -126,16 +128,16 @@ def main():
 
 
     #mean=train_dataset[:]['src'][:,1:,2:4].mean((0,1))
-    mean=torch.cat((train_dataset[:]['src'][:,1:,2:4],train_dataset[:]['trg'][:,:,2:4]),1).mean((0,1))
+    mean=torch.cat((train_dataset[:]['src'][:,1:,2:2+dim],train_dataset[:]['trg'][:,:,2:2+dim]),1).mean((0,1))
     #std=train_dataset[:]['src'][:,1:,2:4].std((0,1))
-    std=torch.cat((train_dataset[:]['src'][:,1:,2:4],train_dataset[:]['trg'][:,:,2:4]),1).std((0,1))
+    std=torch.cat((train_dataset[:]['src'][:,1:,2:2+dim],train_dataset[:]['trg'][:,:,2:2+dim]),1).std((0,1))
     means=[]
     stds=[]
     for i in np.unique(train_dataset[:]['dataset']):
         ind=train_dataset[:]['dataset']==i
-        means.append(torch.cat((train_dataset[:]['src'][ind, 1:, 2:4], train_dataset[:]['trg'][ind, :, 2:4]), 1).mean((0, 1)))
+        means.append(torch.cat((train_dataset[:]['src'][ind, 1:, 2:2+dim], train_dataset[:]['trg'][ind, :, 2:2+dim]), 1).mean((0, 1)))
         stds.append(
-            torch.cat((train_dataset[:]['src'][ind, 1:, 2:4], train_dataset[:]['trg'][ind, :, 2:4]), 1).std((0, 1)))
+            torch.cat((train_dataset[:]['src'][ind, 1:, 2:2+dim], train_dataset[:]['trg'][ind, :, 2:2+dim]), 1).std((0, 1)))
     mean=torch.stack(means).mean(0)
     std=torch.stack(stds).mean(0)
 
@@ -149,24 +151,25 @@ def main():
         for id_b,batch in enumerate(tr_dl):
 
             optim.optimizer.zero_grad()
-            inp=(batch['src'][:,1:,2:].to(device)-mean.to(device))/std.to(device)
-            target=(batch['trg'][:,:-1,2:].to(device)-mean.to(device))/std.to(device)
-            target_c=torch.zeros((target.shape[0],target.shape[1],1)).to(device)
-            target=torch.cat((target,target_c),-1)
-            start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(target.shape[0],1,1).to(device)
+            inp=(batch['src'][:,1:,2:2+dim].to(device)-mean.to(device))/std.to(device) # [8, 7, 3]
+            target=(batch['trg'][:,:-1,2:2+dim].to(device)-mean.to(device))/std.to(device) # [8, 11, 3]
+            target_c=torch.zeros((target.shape[0],target.shape[1],1)).to(device) # [8, 11, 1]
+            target=torch.cat((target,target_c),-1) # [8, 11, 4]
+            start_of_seq = torch.Tensor([0,0,0,1]).unsqueeze(0).unsqueeze(1).repeat(target.shape[0],1,1).to(device) # [8, 1, 4]
 
             dec_inp = torch.cat((start_of_seq, target), 1)
 
             src_att = torch.ones((inp.shape[0], 1,inp.shape[1])).to(device)
             trg_att=subsequent_mask(dec_inp.shape[1]).repeat(dec_inp.shape[0],1,1).to(device)
 
-
-
-
+            # inp shape [8, 7, 3]
+            # dec_inp shape [8, 12, 4]
+            # src_att shape [8, 1, 7]
+            # trg_att shape [8, 12, 12]
             pred=model(inp, dec_inp, src_att, trg_att)
 
-            loss = F.pairwise_distance(pred[:, :,0:2].contiguous().view(-1, dim),
-                                       ((batch['trg'][:, :, 2:].to(device)-mean.to(device))/std.to(device)).contiguous().view(-1, dim).to(device)).mean() + torch.mean(torch.abs(pred[:,:,2]))
+            loss = F.pairwise_distance(pred[:, :,0:dim].contiguous().view(-1, dim),
+                                       ((batch['trg'][:, :, 2:2+dim].to(device)-mean.to(device))/std.to(device)).contiguous().view(-1, dim).to(device)).mean() + torch.mean(torch.abs(pred[:,:,2]))
             loss.backward()
             optim.step()
             print("train epoch %03i/%03i  batch %04i / %04i loss: %7.4f" % (epoch, args.max_epoch, id_b, len(tr_dl), loss.item()))
@@ -193,7 +196,7 @@ def main():
                 peds.append(batch['peds'])
                 dt.append(batch['dataset'])
 
-                inp = (batch['src'][:, 1:, 2:].to(device) - mean.to(device)) / std.to(device)
+                inp = (batch['src'][:, 1:, 2:2+dim].to(device) - mean.to(device)) / std.to(device)
                 src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
                 start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
                     device)
@@ -204,7 +207,7 @@ def main():
                     out = model(inp, dec_inp, src_att, trg_att)
                     dec_inp = torch.cat((dec_inp, out[:, -1:, :]), 1)
 
-                preds_tr_b = (dec_inp[:, 1:, 0:2] * std.to(device) + mean.to(device)).cpu().numpy().cumsum(1) + batch['src'][:, -1:,0:2].cpu().numpy()
+                preds_tr_b = (dec_inp[:, 1:, 0:dim] * std.to(device) + mean.to(device)).cpu().numpy().cumsum(1) + batch['src'][:, -1:,0:dim].cpu().numpy()
                 pr.append(preds_tr_b)
                 print("val epoch %03i/%03i  batch %04i / %04i" % (
                     epoch, args.max_epoch, id_b, len(val_dl)))
@@ -235,11 +238,11 @@ def main():
                 
                 for id_b,batch in enumerate(test_dl):
                     inp_.append(batch['src'])
-                    gt.append(batch['trg'][:,:,0:2])
+                    gt.append(batch['trg'][:,:,0:dim])
                     frames.append(batch['frames'])
                     peds.append(batch['peds'])
                     dt.append(batch['dataset'])
-                    inp = (batch['src'][:, 1:, 2:].to(device) - mean.to(device)) / std.to(device)
+                    inp = (batch['src'][:, 1:, 2:2+dim].to(device) - mean.to(device)) / std.to(device)
                     src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
                     start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
                         device)
@@ -251,7 +254,7 @@ def main():
                         dec_inp=torch.cat((dec_inp,out[:,-1:,:]),1)
 
 
-                    preds_tr_b=(dec_inp[:,1:,0:2]*std.to(device)+mean.to(device)).cpu().numpy().cumsum(1)+batch['src'][:,-1:,0:2].cpu().numpy()
+                    preds_tr_b=(dec_inp[:,1:,0:dim]*std.to(device)+mean.to(device)).cpu().numpy().cumsum(1)+batch['src'][:,-1:,0:dim].cpu().numpy()
                     pr.append(preds_tr_b)
                     print("test epoch %03i/%03i  batch %04i / %04i" % (
                     epoch, args.max_epoch, id_b, len(test_dl)))

@@ -7,6 +7,7 @@ import random
 import scipy.spatial
 import scipy.io
 
+dim = 3
 
 def create_dataset(dataset_folder,dataset_name,val_size,gt,horizon,delim="\t",train=True,eval=False,verbose=False):
         """
@@ -49,7 +50,7 @@ def create_dataset(dataset_folder,dataset_name,val_size,gt,horizon,delim="\t",tr
             if verbose:
                 print("%03i / %03i - loading %s"%(i_dt+1,len(datasets_list),dt))
             raw_data = pd.read_csv(os.path.join(full_dt_folder, dt), delimiter=delim,
-                                            names=["frame", "ped", "x", "y", "z"],usecols=[0,1,2,3],na_values="?") # TODO
+                                            names=["frame", "ped", "x", "y", "z"],usecols=[0, 1, 2, 3, 4],na_values="?")
 
             raw_data.sort_values(by=['frame','ped'], inplace=True)
 
@@ -184,14 +185,14 @@ def get_strided_data(dt, gt_size, horizon, step):
         for i in range(1+(raw_data[raw_data.ped == p].shape[0] - gt_size - horizon) // step): # 将gt和horizon的
             frame.append(dt[dt.ped == p].iloc[i * step:i * step + gt_size + horizon, [0]].values.squeeze())
             # print("%i,%i,%i" % (i * 4, i * 4 + gt_size, i * 4 + gt_size + horizon))
-            inp_te.append(raw_data[raw_data.ped == p].iloc[i * step:i * step + gt_size + horizon, 2:4].values) # 添加xy经纬度, TODO
+            inp_te.append(raw_data[raw_data.ped == p].iloc[i * step:i * step + gt_size + horizon, 2:].values)
             ped_ids.append(p)
 
     frames=np.stack(frame) # list转成numpy，将所有的frame整合
     inp_te_np = np.stack(inp_te)
     ped_ids=np.stack(ped_ids)
 
-    inp_no_start = inp_te_np[:,1:,0:2] - inp_te_np[:, :-1, 0:2]
+    inp_no_start = inp_te_np[:,1:,:] - inp_te_np[:, :-1, :]
     inp_std = inp_no_start.std(axis=(0, 1))
     inp_mean = inp_no_start.mean(axis=(0, 1))
     inp_norm=inp_no_start
@@ -215,7 +216,7 @@ def get_strided_data_2(dt, gt_size, horizon, step):
         for i in range(1+(raw_data[raw_data.ped == p].shape[0] - gt_size - horizon) // step):
             frame.append(dt[dt.ped == p].iloc[i * step:i * step + gt_size + horizon, [0]].values.squeeze())
             # print("%i,%i,%i" % (i * 4, i * 4 + gt_size, i * 4 + gt_size + horizon))
-            inp_te.append(raw_data[raw_data.ped == p].iloc[i * step:i * step + gt_size + horizon, 2:4].values)
+            inp_te.append(raw_data[raw_data.ped == p].iloc[i * step:i * step + gt_size + horizon, 2:].values)
             ped_ids.append(p)
 
     frames=np.stack(frame)
@@ -223,8 +224,8 @@ def get_strided_data_2(dt, gt_size, horizon, step):
     ped_ids=np.stack(ped_ids)
 
     inp_relative_pos= inp_te_np-inp_te_np[:,:1,:]
-    inp_speed = np.concatenate((np.zeros((inp_te_np.shape[0],1,2)),inp_te_np[:,1:,0:2] - inp_te_np[:, :-1, 0:2]),1)
-    inp_accel = np.concatenate((np.zeros((inp_te_np.shape[0],1,2)),inp_speed[:,1:,0:2] - inp_speed[:, :-1, 0:2]),1)
+    inp_speed = np.concatenate((np.zeros((inp_te_np.shape[0],1,dim)),inp_te_np[:,1:,0:dim] - inp_te_np[:, :-1, 0:dim]),1)
+    inp_accel = np.concatenate((np.zeros((inp_te_np.shape[0],1,dim)),inp_speed[:,1:,0:dim] - inp_speed[:, :-1, 0:dim]),1)
     #inp_std = inp_no_start.std(axis=(0, 1))
     #inp_mean = inp_no_start.mean(axis=(0, 1))
     #inp_norm= inp_no_start
@@ -251,7 +252,7 @@ def get_strided_data_clust(dt, gt_size, horizon, step):
             frame.append(dt[dt.ped == p].iloc[i * step:i * step + gt_size + horizon, [0]].values.squeeze())
             # print("%i,%i,%i" % (i * 4, i * 4 + gt_size, i * 4 + gt_size + horizon))
             # 找出p相等的数据
-            inp_te.append(raw_data[raw_data.ped == p].iloc[i * step:i * step + gt_size + horizon, 2:4].values)
+            inp_te.append(raw_data[raw_data.ped == p].iloc[i * step:i * step + gt_size + horizon, 2:].values)
             ped_ids.append(p)
 
     frames=np.stack(frame)
@@ -259,8 +260,8 @@ def get_strided_data_clust(dt, gt_size, horizon, step):
     ped_ids=np.stack(ped_ids)
 
     #inp_relative_pos= inp_te_np-inp_te_np[:,:1,:]
-    # TODO:
-    inp_speed = np.concatenate((np.zeros((inp_te_np.shape[0],1,2)),inp_te_np[:,1:,0:2] - inp_te_np[:, :-1, 0:2]),1)
+    # inp_te_np shape is [batch, len_obs + len_pred, coordinate],求出相对速度
+    inp_speed = np.concatenate((np.zeros((inp_te_np.shape[0],1,dim)),inp_te_np[:,1:,0:dim] - inp_te_np[:, :-1, 0:dim]),1)
     #inp_accel = np.concatenate((np.zeros((inp_te_np.shape[0],1,2)),inp_speed[:,1:,0:2] - inp_speed[:, :-1, 0:2]),1)
     #inp_std = inp_no_start.std(axis=(0, 1))
     #inp_mean = inp_no_start.mean(axis=(0, 1))
@@ -269,9 +270,10 @@ def get_strided_data_clust(dt, gt_size, horizon, step):
 
     #vis=inp_te_np[:,1:,2:4]/np.linalg.norm(inp_te_np[:,1:,2:4],2,axis=2)[:,:,np.newaxis]
     #inp_norm=np.concatenate((inp_norm,vis),2)
+    # 第三个维度累加
     inp_norm=np.concatenate((inp_te_np,inp_speed),2)
-    inp_mean=np.zeros(4)
-    inp_std=np.ones(4)
+    inp_mean=np.zeros(dim*2)
+    inp_std=np.ones(dim*2)
 
     return inp_norm[:,:gt_size],inp_norm[:,gt_size:],{'mean': inp_mean, 'std': inp_std, 'seq_start': inp_te_np[:, 0:1, :].copy(),'frames':frames,'peds':ped_ids}
 
