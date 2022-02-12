@@ -13,7 +13,7 @@ import numpy as np
 import scipy.io
 import json
 import pickle
-
+from torchsummary import summary
 from torch.utils.tensorboard import SummaryWriter
 
 dim = 3
@@ -24,8 +24,8 @@ def main():
     parser.add_argument('--dataset_folder',type=str,default='datasets')
     parser.add_argument('--dataset_name',type=str,default='state0907_20210312')
     parser.add_argument('--obs',type=int,default=8)
-    parser.add_argument('--preds',type=int,default=12)
-    parser.add_argument('--emb_size',type=int,default=480)
+    parser.add_argument('--preds',type=int,default=8)
+    parser.add_argument('--emb_size',type=int,default=512)
     parser.add_argument('--heads',type=int, default=8)
     parser.add_argument('--layers',type=int,default=6)
     parser.add_argument('--dropout',type=float,default=0.1)
@@ -33,7 +33,7 @@ def main():
     parser.add_argument('--val_size',type=int, default=0)
     parser.add_argument('--verbose',action='store_true')
     parser.add_argument('--max_epoch',type=int, default=1500)
-    parser.add_argument('--batch_size',type=int,default=70)
+    parser.add_argument('--batch_size',type=int,default=64)
     parser.add_argument('--validation_epoch_start', type=int, default=30)
     parser.add_argument('--resume_train',action='store_true')
     parser.add_argument('--delim',type=str,default='\t')
@@ -110,7 +110,7 @@ def main():
     import individual_TF
     model=individual_TF.IndividualTF(dim, 4, 4, N=args.layers,
                    d_model=args.emb_size, d_ff=2048, h=args.heads, dropout=args.dropout,mean=[0,0,0],std=[0,0,0]).to(device)
-    print("model info is {}", model)
+    # print("model info is {}", model)
 
     if args.resume_train:
         model.load_state_dict(torch.load(f'models/Individual/{args.name}/{args.model_pth}'))
@@ -191,14 +191,15 @@ def main():
 
             for id_b, batch in enumerate(val_dl):
                 inp_.append(batch['src'])
-                gt.append(batch['trg'][:, :, 0:2])
+                gt.append(batch['trg'][:, :, 0:dim])
                 frames.append(batch['frames'])
                 peds.append(batch['peds'])
                 dt.append(batch['dataset'])
 
+
                 inp = (batch['src'][:, 1:, 2:2+dim].to(device) - mean.to(device)) / std.to(device)
                 src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
-                start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
+                start_of_seq = torch.Tensor([0, 0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
                     device)
                 dec_inp = start_of_seq
 
@@ -244,7 +245,7 @@ def main():
                     dt.append(batch['dataset'])
                     inp = (batch['src'][:, 1:, 2:2+dim].to(device) - mean.to(device)) / std.to(device)
                     src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
-                    start_of_seq = torch.Tensor([0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
+                    start_of_seq = torch.Tensor([0, 0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
                         device)
                     dec_inp=start_of_seq
 

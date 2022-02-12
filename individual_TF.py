@@ -71,11 +71,17 @@ class Generator(nn.Module):
 if __name__ == '__main__':
     dim = 3
     layers = 6
+
     emb_size = 512
     heads = 8
     dropout = 0.1
-    device = torch.device("cuda")
-    model = IndividualTF(dim, 3, 3, N=layers,
+    device = torch.device("cpu")
+    model = IndividualTF(dim, 4, 4, N=layers,
                                        d_model=emb_size, d_ff=2048, h=heads, dropout=dropout,
                                        mean=[0, 0, 0], std=[0, 0, 0]).to(device)
     print("model info is {}", model)
+    inp = torch.randn(8, 7, 3)
+    dec_inp = torch.randn(8, 12, 4)
+    src_att = torch.randn(8, 1, 7)
+    trg_att = torch.randn(8, 12, 12)
+    pred = model(inp, dec_inp, src_att, trg_att)
