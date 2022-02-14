@@ -124,7 +124,7 @@ def main():
             frames.append(batch['frames'])
             peds.append(batch['peds'])
             dt.append(batch['dataset'])
-            inp = (batch['src'][:, 1:, 2:2 + dim].to(device) - mean.to(device)) / std.to(device)
+            inp = (batch['src'][:, 1:, dim:2*dim].to(device) - mean.to(device)) / std.to(device)
             src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
             start_of_seq = torch.Tensor([0, 0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
                 device)

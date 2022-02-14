@@ -31,14 +31,14 @@ def main():
     parser.add_argument('--cpu',action='store_true')
     parser.add_argument('--val_size',type=int, default=0)
     parser.add_argument('--verbose',action='store_true')
-    parser.add_argument('--max_epoch',type=int, default=500)
+    parser.add_argument('--max_epoch',type=int, default=50)
     parser.add_argument('--batch_size',type=int,default=64)
     parser.add_argument('--validation_epoch_start', type=int, default=30)
     parser.add_argument('--resume_train',action='store_true')
     parser.add_argument('--delim',type=str,default='\t')
     parser.add_argument('--name', type=str, default="state0907_20210312")
     parser.add_argument('--factor', type=float, default=1.)
-    parser.add_argument('--save_step', type=int, default=1)
+    parser.add_argument('--save_step', type=int, default=5)
     parser.add_argument('--warmup', type=int, default=10)
     parser.add_argument('--evaluate', type=bool, default=True)
     parser.add_argument('--model_pth', type=str)
@@ -127,16 +127,16 @@ def main():
 
 
     #mean=train_dataset[:]['src'][:,1:,2:4].mean((0,1))
-    mean=torch.cat((train_dataset[:]['src'][:,1:,2:2+dim],train_dataset[:]['trg'][:,:,2:2+dim]),1).mean((0,1))
+    mean=torch.cat((train_dataset[:]['src'][:,1:,dim:2*dim],train_dataset[:]['trg'][:,:,dim:2*dim]),1).mean((0,1))
     #std=train_dataset[:]['src'][:,1:,2:4].std((0,1))
-    std=torch.cat((train_dataset[:]['src'][:,1:,2:2+dim],train_dataset[:]['trg'][:,:,2:2+dim]),1).std((0,1))
+    std=torch.cat((train_dataset[:]['src'][:,1:,dim:2*dim],train_dataset[:]['trg'][:,:,dim:2*dim]),1).std((0,1))
     means=[]
     stds=[]
     for i in np.unique(train_dataset[:]['dataset']):
         ind=train_dataset[:]['dataset']==i
-        means.append(torch.cat((train_dataset[:]['src'][ind, 1:, 2:2+dim], train_dataset[:]['trg'][ind, :, 2:2+dim]), 1).mean((0, 1)))
+        means.append(torch.cat((train_dataset[:]['src'][ind, 1:, dim:2*dim], train_dataset[:]['trg'][ind, :,dim:2*dim]), 1).mean((0, 1)))
         stds.append(
-            torch.cat((train_dataset[:]['src'][ind, 1:, 2:2+dim], train_dataset[:]['trg'][ind, :, 2:2+dim]), 1).std((0, 1)))
+            torch.cat((train_dataset[:]['src'][ind, 1:, dim:2*dim], train_dataset[:]['trg'][ind, :, dim:2*dim]), 1).std((0, 1)))
     mean=torch.stack(means).mean(0)
     std=torch.stack(stds).mean(0)
 
@@ -150,8 +150,8 @@ def main():
         for id_b,batch in enumerate(tr_dl):
 
             optim.optimizer.zero_grad()
-            inp=(batch['src'][:,1:,2:2+dim].to(device)-mean.to(device))/std.to(device) # [8, 7, 3]
-            target=(batch['trg'][:,:-1,2:2+dim].to(device)-mean.to(device))/std.to(device) # [8, 11, 3]
+            inp=(batch['src'][:,1:,dim:2*dim].to(device)-mean.to(device))/std.to(device) # [8, 7, 3]
+            target=(batch['trg'][:,:-1,dim:2*dim].to(device)-mean.to(device))/std.to(device) # [8, 11, 3]
             target_c=torch.zeros((target.shape[0],target.shape[1],1)).to(device) # [8, 11, 1]
             target=torch.cat((target,target_c),-1) # [8, 11, 4]
             start_of_seq = torch.Tensor([0,0,0,1]).unsqueeze(0).unsqueeze(1).repeat(target.shape[0],1,1).to(device) # [8, 1, 4]
@@ -168,7 +168,7 @@ def main():
             pred=model(inp, dec_inp, src_att, trg_att)
 
             loss = F.pairwise_distance(pred[:, :,0:dim].contiguous().view(-1, dim),
-                                       ((batch['trg'][:, :, 2:2+dim].to(device)-mean.to(device))/std.to(device)).contiguous().view(-1, dim).to(device)).mean() + torch.mean(torch.abs(pred[:,:,2]))
+                                       ((batch['trg'][:, :, dim:2*dim].to(device)-mean.to(device))/std.to(device)).contiguous().view(-1, dim).to(device)).mean() + torch.mean(torch.abs(pred[:,:,2]))
             loss.backward()
             optim.step()
             print("train epoch %03i/%03i  batch %04i / %04i loss: %7.4f" % (epoch, args.max_epoch, id_b, len(tr_dl), loss.item()))
@@ -189,14 +189,14 @@ def main():
             dt = []
 
             for id_b, batch in enumerate(val_dl):
-                inp_.append(batch['src'])
+                inp_.append(batch['src'][:, :, 0:dim])
                 gt.append(batch['trg'][:, :, 0:dim])
                 frames.append(batch['frames'])
                 peds.append(batch['peds'])
                 dt.append(batch['dataset'])
 
 
-                inp = (batch['src'][:, 1:, 2:2+dim].to(device) - mean.to(device)) / std.to(device)
+                inp = (batch['src'][:, 1:, dim:2*dim].to(device) - mean.to(device)) / std.to(device)
                 src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
                 start_of_seq = torch.Tensor([0, 0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
                     device)
@@ -237,12 +237,12 @@ def main():
                 dt = []
                 
                 for id_b,batch in enumerate(test_dl):
-                    inp_.append(batch['src'])
+                    inp_.append(batch['src'][:,:,0:dim])
                     gt.append(batch['trg'][:,:,0:dim])
                     frames.append(batch['frames'])
                     peds.append(batch['peds'])
                     dt.append(batch['dataset'])
-                    inp = (batch['src'][:, 1:, 2:2+dim].to(device) - mean.to(device)) / std.to(device)
+                    inp = (batch['src'][:, 1:, dim:2*dim].to(device) - mean.to(device)) / std.to(device)
                     src_att = torch.ones((inp.shape[0], 1, inp.shape[1])).to(device)
                     start_of_seq = torch.Tensor([0, 0, 0, 1]).unsqueeze(0).unsqueeze(1).repeat(inp.shape[0], 1, 1).to(
                         device)
@@ -277,7 +277,7 @@ def main():
                 # log.add_scalar('eval/DET_fad', fad, epoch)
 
                 scipy.io.savemat(f"output/Individual/{args.name}/det_{epoch:05d}.mat",
-                                 {'input': inp, 'gt': gt, 'pr': pr, 'peds': peds, 'frames': frames, 'dt': dt,
+                                 {'input': inp_, 'gt': gt, 'pr': pr, 'peds': peds, 'frames': frames, 'dt': dt,
                                   'dt_names': dt_names})
 
 
