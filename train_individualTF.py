@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import os
 import time
 from transformer.batch import subsequent_mask
-from torch.optim import Adam,SGD, RMSprop, Adagrad
 from transformer.noam_opt import NoamOpt
 import numpy as np
 import scipy.io
@@ -32,12 +31,12 @@ def main():
     parser.add_argument('--cpu',action='store_true')
     parser.add_argument('--val_size',type=int, default=0)
     parser.add_argument('--verbose',action='store_true')
-    parser.add_argument('--max_epoch',type=int, default=1500)
+    parser.add_argument('--max_epoch',type=int, default=500)
     parser.add_argument('--batch_size',type=int,default=64)
     parser.add_argument('--validation_epoch_start', type=int, default=30)
     parser.add_argument('--resume_train',action='store_true')
     parser.add_argument('--delim',type=str,default='\t')
-    parser.add_argument('--name', type=str, default="zara1")
+    parser.add_argument('--name', type=str, default="state0907_20210312")
     parser.add_argument('--factor', type=float, default=1.)
     parser.add_argument('--save_step', type=int, default=1)
     parser.add_argument('--warmup', type=int, default=10)
@@ -108,7 +107,7 @@ def main():
 
 
     import individual_TF
-    model=individual_TF.IndividualTF(dim, 4, 4, N=args.layers,
+    model=individual_TF.IndividualTF(dim, dim+1, dim+1, N=args.layers,
                    d_model=args.emb_size, d_ff=2048, h=args.heads, dropout=args.dropout,mean=[0,0,0],std=[0,0,0]).to(device)
     # print("model info is {}", model)
 
@@ -277,7 +276,7 @@ def main():
                 # log.add_scalar('eval/DET_mad', mad, epoch)
                 # log.add_scalar('eval/DET_fad', fad, epoch)
 
-                scipy.io.savemat(f"output/Individual/{args.name}/det_{epoch}.mat",
+                scipy.io.savemat(f"output/Individual/{args.name}/det_{epoch:05d}.mat",
                                  {'input': inp, 'gt': gt, 'pr': pr, 'peds': peds, 'frames': frames, 'dt': dt,
                                   'dt_names': dt_names})
 
