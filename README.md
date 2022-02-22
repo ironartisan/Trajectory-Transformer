@@ -2,6 +2,10 @@
 # Transformer Networks for Trajectory Forecasting
 This is the code for the paper **<a href="https://arxiv.org/abs/2003.08111">Transformer Networks for Trajectory Forecasting</a>**
 
+## Custom update
+- Modify custom dataset
+- Modify the dataset dimension to be settable
+- Add evaluation code
 
 
 
