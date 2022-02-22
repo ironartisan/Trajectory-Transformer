@@ -21,7 +21,7 @@ dim = 3
 def main():
     parser=argparse.ArgumentParser(description='Train the individual Transformer model')
     parser.add_argument('--dataset_folder',type=str,default='datasets')
-    parser.add_argument('--dataset_name',type=str,default='state0907_20210312')
+    parser.add_argument('--dataset_name',type=str,default='state0907_20210327_3d')
     parser.add_argument('--obs',type=int,default=8)
     parser.add_argument('--preds',type=int,default=8)
     parser.add_argument('--emb_size',type=int,default=512)
@@ -36,13 +36,13 @@ def main():
     parser.add_argument('--validation_epoch_start', type=int, default=30)
     parser.add_argument('--resume_train',action='store_true')
     parser.add_argument('--delim',type=str,default='\t')
-    parser.add_argument('--name', type=str, default="state0907_20210312")
+    parser.add_argument('--name', type=str, default="state0907_20210327_3d")
     parser.add_argument('--factor', type=float, default=1.)
     parser.add_argument('--save_step', type=int, default=5)
     parser.add_argument('--warmup', type=int, default=10)
     parser.add_argument('--evaluate', type=bool, default=True)
     parser.add_argument('--model_pth', type=str)
-    parser.add_argument('--gpu_num', default='1', type=str)
+    parser.add_argument('--gpu_num', default='0,1', type=str)
 
 
 
@@ -110,7 +110,7 @@ def main():
     model=individual_TF.IndividualTF(dim, dim+1, dim+1, N=args.layers,
                    d_model=args.emb_size, d_ff=2048, h=args.heads, dropout=args.dropout,mean=[0,0,0],std=[0,0,0]).to(device)
     # print("model info is {}", model)
-
+    model = torch.nn.DataParallel(model)
     if args.resume_train:
         model.load_state_dict(torch.load(f'models/Individual/{args.name}/{args.model_pth}'))
 
