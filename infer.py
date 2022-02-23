@@ -74,7 +74,7 @@ class Infer(object):
                 preds_tr_b = (dec_inp[:, 1:, 0:dim] * std.to(self.device) + mean.to(self.device)).cpu().numpy().cumsum(1) \
                              + batch['src'][:, -1:,0:dim].cpu().numpy()
 
-                obs = batch['src'][:, :, dim:2 * dim].cpu().numpy()
+                obs = batch['src'][:, :, 0:dim].cpu().numpy()
                 pred_gt, pred_fake = batch['trg'][:, :, 0:dim].cpu().numpy(), torch.from_numpy(preds_tr_b).cpu().numpy()
                 return obs, pred_gt, pred_fake
 

@@ -139,7 +139,7 @@ def main():
                                                                                                               0:dim].cpu().numpy()
 
             pr.append(preds_tr_b)
-            obs = batch['src'][:, :, dim:2 * dim].cpu().numpy()
+            obs = batch['src'][:, :, 0:dim].cpu().numpy()
             pred_gt, pred_fake = batch['trg'][:, :, 0:dim].cpu().numpy(), torch.from_numpy(preds_tr_b).cpu().numpy()
             print("obs shape is {}".format(obs.shape))
             print("pred_gt shape is {}".format(pred_gt.shape))
