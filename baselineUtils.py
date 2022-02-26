@@ -11,6 +11,12 @@ from mpl_toolkits.mplot3d import Axes3D
 
 dim = 3
 
+
+plt.rcParams['font.sans-serif'] = ["SimHei"]
+# 防止 - 号出错，和上一行同时解注
+plt.rcParams["axes.unicode_minus"] = False
+
+
 def create_dataset(dataset_folder,dataset_name,val_size,gt,horizon,delim="\t",train=True,eval=False,verbose=False):
         """
         gt:obs length
@@ -374,25 +380,32 @@ def l2_loss(pred_traj, pred_traj_gt, random=0, mode='average'):
     elif mode == 'raw':
         return loss.sum(dim=2).sum(dim=1)
 
+
 def show(obs_traj, pred_traj_gt, pred_traj, save_fig=False, fig_name=None):
     """
     obs_traj:(batch, obs_len, dim)
     pred_traj_gt:(batch, gt_len, dim)
     pred_traj:(batch, pred_len, dim)
     """
-    pred_traj = np.concatenate((np.expand_dims(obs_traj[:, -1, :], axis=1), pred_traj),axis=1)
-    # pred_traj_gt = np.concatenate((np.expand_dims(obs_traj[:, -1, :], axis=1), pred_traj_gt), axis=1)
+    pred_traj = np.concatenate((np.expand_dims(obs_traj[:, -1, :], axis=1), pred_traj), axis=1)
+    pred_traj_gt = np.concatenate((np.expand_dims(obs_traj[:, -1, :], axis=1), pred_traj_gt), axis=1)
 
     fig = plt.figure()
     ax = Axes3D(fig)
+    # 取消z轴的科学计数法
+    ax.get_zaxis().get_major_formatter().set_scientific(False)
     line_width = 1
     marker_size = 3
-
-    ax.plot(obs_traj[0, :, 0], obs_traj[0, :, 1], obs_traj[0, :, 2], color='r', label='input', linewidth=line_width)
-    ax.plot(pred_traj_gt[0, :, 0], pred_traj_gt[0, :, 1], pred_traj_gt[0, :, 2], color='g', label='groudtruth',
+    ax.set_xlabel('纬度(单位：度)')
+    ax.set_ylabel('经度(单位：度)')
+    ax.set_zlabel('高度(单位：米)')
+    ax.plot(obs_traj[0, :, 0], obs_traj[0, :, 1], obs_traj[0, :, 2], color='r', label='input',
+            linewidth=line_width)
+    ax.plot(pred_traj_gt[0, :, 0], pred_traj_gt[0, :, 1], pred_traj_gt[0, :, 2], color='g',
+            label='groudtruth',
             linewidth=line_width, marker='D', markersize=marker_size)
-    # ax.plot(pred_traj[0, :, 0], pred_traj[0, :, 1], pred_traj[0, :, 2], color='b', label='prediction',
-    #         linewidth=line_width, marker='x', markersize=marker_size)
+    ax.plot(pred_traj[0, :, 0], pred_traj[0, :, 1], pred_traj[0, :, 2], color='b', label='prediction',
+            linewidth=line_width, marker='x', markersize=marker_size)
 
     ax.legend()
     if save_fig:
@@ -401,6 +414,50 @@ def show(obs_traj, pred_traj_gt, pred_traj, save_fig=False, fig_name=None):
         plt.savefig('{}.png'.format(fig_name))
     else:
         plt.show()
+
+
+def show_t(obs_traj, pred_traj_gt, pred_traj, save_fig=False, fig_name=None):
+    """
+    obs_traj:(batch, obs_len, dim)
+    pred_traj_gt:(batch, gt_len, dim)
+    pred_traj:(batch, pred_len, dim)
+    """
+
+    pred_traj = np.concatenate((np.expand_dims(obs_traj[:, -1, :], axis=1), pred_traj),axis=1)
+    pred_traj_gt = np.concatenate((np.expand_dims(obs_traj[:, -1, :], axis=1), pred_traj_gt), axis=1)
+
+    batch = obs_traj.shape[0]
+    # plt.rcParams['font.sans-serif'] = ['SimHei']  # 用来正常显示中文标签
+    # plt.rcParams['axes.unicode_minus'] = False  # 用来正常显示负号
+
+    fig = plt.figure()
+    for index in range(batch):
+
+        ax = Axes3D(fig)
+        # 取消z轴的科学计数法
+        ax.get_zaxis().get_major_formatter().set_scientific(False)
+
+        line_width = 1
+        marker_size = 3
+        ax.set_xlabel('纬度(单位：度)')
+        ax.set_ylabel('经度(单位：度)')
+        ax.set_zlabel('高度(单位：米)')
+        ax.plot(obs_traj[index, :, 0], obs_traj[index, :, 1], obs_traj[index, :, 2], color='r', label='input', linewidth=line_width)
+        ax.plot(pred_traj_gt[index, :, 0], pred_traj_gt[index, :, 1], pred_traj_gt[index, :, 2], color='g', label='groudtruth',
+                linewidth=line_width, marker='D', markersize=marker_size)
+        ax.plot(pred_traj[index, :, 0], pred_traj[index, :, 1], pred_traj[index, :, 2], color='b', label='prediction',
+                linewidth=line_width, marker='x', markersize=marker_size)
+
+        ax.legend()
+        if save_fig:
+            if not fig_name:
+                fig_name = index
+            plt.savefig('{}.png'.format(index))
+            plt.clf()
+        else:
+            plt.show()
+    plt.close()
+
 
 def show_traj(obs_traj, save_fig=False, fig_name=None):
     """
@@ -411,8 +468,13 @@ def show_traj(obs_traj, save_fig=False, fig_name=None):
 
     fig = plt.figure()
     ax = Axes3D(fig)
+    # 取消z轴的科学计数法
+    ax.get_zaxis().get_major_formatter().set_scientific(False)
     line_width = 1
     marker_size = 3
+    ax.set_xlabel('纬度(单位：度)')
+    ax.set_ylabel('经度(单位：度)')
+    ax.set_zlabel('高度(单位：米)')
 
     ax.plot(obs_traj[0, :, 0], obs_traj[0, :, 1], obs_traj[0, :, 2], color='r', label='input', linewidth=line_width)
     # ax.plot(pred_traj_gt[0, :, 0], pred_traj_gt[0, :, 1], pred_traj_gt[0, :, 2], color='g', label='groudtruth',
@@ -427,3 +489,15 @@ def show_traj(obs_traj, save_fig=False, fig_name=None):
         plt.savefig('{}.png'.format(fig_name))
     else:
         plt.show()
+
+
+def process_normal(traj_data, normal_parm):
+
+
+    traj_data[:, :, 0] = traj_data[:, :, 0] * normal_parm['lat_scale'] + normal_parm['lat_min']
+
+    traj_data[:, :, 1] = traj_data[:, :, 1] * normal_parm['lon_scale'] + normal_parm['lon_min']
+
+    traj_data[:, :, 2] = traj_data[:, :, 2] * normal_parm['alt_scale'] + normal_parm['alt_min']
+
+    return traj_data

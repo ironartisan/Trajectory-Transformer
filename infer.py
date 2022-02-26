@@ -15,7 +15,7 @@ import pickle
 
 from torch.utils.tensorboard import SummaryWriter
 import individual_TF
-from baselineUtils import cal_ade, cal_fde, show
+from baselineUtils import cal_ade, cal_fde, show_t, process_normal
 
 dim = 3
 
@@ -32,7 +32,7 @@ class Infer(object):
         self.device = torch.device("cuda") if use_cuda else torch.device("cpu")
 
     def load_mat(self):
-        nor = scipy.io.loadmat(os.path.join("models/Individual/{}/norm.mat".format(args.dataset_name)))
+        nor = scipy.io.loadmat(os.path.join("models/Individual/{}/norm.mat".format(args.name)))
         mean = torch.from_numpy(nor['mean'])
         std = torch.from_numpy(nor['std'])
         return mean, std
@@ -139,9 +139,9 @@ class Infer(object):
 if __name__ == '__main__':
     parser=argparse.ArgumentParser(description='Train the individual Transformer model')
     parser.add_argument('--dataset_folder',type=str,default='datasets')
-    parser.add_argument('--dataset_name',type=str,default='state0907_20210327_3d')
+    parser.add_argument('--dataset_name',type=str,default='states20210830_small2')
     parser.add_argument('--obs',type=int,default=8)
-    parser.add_argument('--preds',type=int,default=8)
+    parser.add_argument('--preds',type=int,default=12)
     parser.add_argument('--emb_size',type=int,default=512)
     parser.add_argument('--heads',type=int, default=8)
     parser.add_argument('--layers',type=int,default=6)
@@ -150,15 +150,29 @@ if __name__ == '__main__':
     parser.add_argument('--verbose',action='store_true')
     parser.add_argument('--batch_size',type=int,default=64)
     parser.add_argument('--delim',type=str,default='\t')
-    parser.add_argument('--name', type=str, default="state0907_20210327_3d")
-    parser.add_argument('--epoch',type=str,default="00450")
+    parser.add_argument('--name', type=str, default="states20210830_small2_obs8_pred12")
+    parser.add_argument('--epoch',type=str,default="00360")
     parser.add_argument('--num_samples', type=int, default="20")
 
     args=parser.parse_args()
     model_name=args.name
 
+    STATE_PARAM = {
+        'lon_max': 153.6899521771599,
+        'lon_min': -157.5161852155413,
+        'lon_scale': 311.2061373927012,
+
+        'lat_max': 68.65235409494173,
+        'lat_min': -38.503867973715614,
+        'lat_scale': 107.15622206865734,
+
+        'alt_max': 22250.4,
+        'alt_min': -106.68,
+        'alt_scale': 22357.08,
+    }
+
     infer = Infer(args.dataset_name, args.batch_size, args.emb_size, args.obs, args.preds)
     obs, pred_gt, pred_fake = infer.get_one()
-
-    show(obs, pred_gt, pred_fake)
+    normal_obs, normal_pred_gt, normal_pred_fake = process_normal(obs, STATE_PARAM), process_normal(pred_gt, STATE_PARAM), process_normal(pred_fake, STATE_PARAM)
+    show_t(normal_obs, normal_pred_gt, normal_pred_fake, save_fig=True)
 

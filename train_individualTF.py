@@ -168,7 +168,7 @@ def main():
             pred=model(inp, dec_inp, src_att, trg_att)
 
             loss = F.pairwise_distance(pred[:, :,0:dim].contiguous().view(-1, dim),
-                                       ((batch['trg'][:, :, dim:2*dim].to(device)-mean.to(device))/std.to(device)).contiguous().view(-1, dim).to(device)).mean() + torch.mean(torch.abs(pred[:,:,2]))
+                                       ((batch['trg'][:, :, dim:2*dim].to(device)-mean.to(device))/std.to(device)).contiguous().view(-1, dim).to(device)).mean() + torch.mean(torch.abs(pred[:,:,dim]))
             loss.backward()
             optim.step()
             print("train epoch %03i/%03i  batch %04i / %04i loss: %7.4f" % (epoch, args.max_epoch, id_b, len(tr_dl), loss.item()))
